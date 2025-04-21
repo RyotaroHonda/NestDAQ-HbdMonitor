@@ -13,7 +13,7 @@
 #include <fairmq/FairMQDevice.h>
 #endif
 
-#include "../mydecoder/LeafProcessor.hh"
+#include "mydecoder/LeafProcessor.hh"
 
 class HbdMonitor : public FairMQDevice {
 public:

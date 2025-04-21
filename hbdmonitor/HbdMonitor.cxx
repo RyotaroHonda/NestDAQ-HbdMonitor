@@ -6,11 +6,11 @@
 
 #include "HbdMonitor.h"
 
-#include "../mydecoder/NodeHeaderSchema.hh"
-#include "../mydecoder/NodeHeaderDecoder.hh"
-#include "../mydecoder/LeafSchema.hh"
-#include "../mydecoder/LeafDecoder.hh"
-#include "../mydecoder/LeafProcessor.hh"
+#include "mydecoder/NodeHeaderSchema.hh"
+#include "mydecoder/NodeHeaderDecoder.hh"
+#include "mydecoder/LeafSchema.hh"
+#include "mydecoder/LeafDecoder.hh"
+#include "mydecoder/LeafProcessor.hh"
 
 namespace
 {
