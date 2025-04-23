@@ -50,12 +50,14 @@ void PrintConfig( const fair::mq::ProgOptions* config, std::string_view name, st
 void HbdMonitor::InitTask()
 {
   PrintConfig( fConfig, "channel-config", __PRETTY_FUNCTION__ );
-  PrintConfig(fConfig, "chans.", __PRETTY_FUNCTION__);
+  PrintConfig( fConfig, "chans.", __PRETTY_FUNCTION__ );
 
   using opt = OptionKey;
 
   fInputChannelName = fConfig->GetProperty<std::string>(opt::InputChannelName.data());
-  LOG(debug) << kClassName << "::InitTask() input channel = " << fInputChannelName;
+  LOG( debug ) << kClassName << "::InitTask() input channel = " << fInputChannelName;
+
+  OnData( fInputChannelName, &HbdMonitor::HandleMultipartData );
 
   // LeafProcessor initialize //
   fLeafProcessor.clear();
@@ -64,14 +66,8 @@ void HbdMonitor::InitTask()
 }
 
 //_____________________________________________________________________________
-void HbdMonitor::PostRun()
-{
-  fLeafProcessor.clear();
-  LOG( info ) << kClassName << "::PostRun()";
-}
-
-//_____________________________________________________________________________
-bool HbdMonitor::ConditionalRun()
+bool
+HbdMonitor::HandleMultipartData( FairMQParts& msgParts, int index )
 {
   static const std::string kFuncName( "[" + kClassName + "::" + __func__ + "()] " );
 
@@ -80,7 +76,7 @@ bool HbdMonitor::ConditionalRun()
   fLeafProcessor.clear_node_block();
   fLeafProcessor.clear_hbd();
 
-  HbdMonitor::UnpackMessage();
+  HbdMonitor::UnpackMessage( msgParts );
 
   for( uint32_t i = 0; i < fLeafProcessor.get_num_frame(); ++i ) {
     fLeafProcessor.set_frame_index( i );
@@ -101,11 +97,11 @@ bool HbdMonitor::ConditionalRun()
   ++fShowCounter;
 
   return true;
+
 }
 
-
 //_____________________________________________________________________________
-void HbdMonitor::UnpackMessage()
+void HbdMonitor::UnpackMessage( FairMQParts& inParts )
 {
   static const std::string kFuncName( "[" + kClassName + "::" + __func__ + "()] " );
 
@@ -113,29 +109,27 @@ void HbdMonitor::UnpackMessage()
 
   ndu::DecodedHeaderData header_data;
 
-  fair::mq::Parts inParts;
-  if( Receive( inParts, fInputChannelName, 0, 500 ) ) {
-    for( auto& vmsg : inParts ) {
-      uint64_t* ptr = reinterpret_cast< uint64_t* >( vmsg->GetData() );
+  for( const auto& vmsg : inParts ) {
+    uint64_t* ptr = reinterpret_cast< uint64_t* >( vmsg->GetData() );
 
-      auto schema_page = nestdaq::g_header_schema.find( ptr[0] );
-      if( nestdaq::g_header_schema.end() == schema_page ) {
-        LOG( warn ) << kFuncName << "Unkown data block";
-        LOG( warn ) << std::hex << ptr[0];
+    auto schema_page = nestdaq::g_header_schema.find( ptr[0] );
+    if( nestdaq::g_header_schema.end() == schema_page ) {
+      LOG( warn ) << kFuncName << "Unkown data block";
+      LOG( warn ) << std::hex << ptr[0];
+    } else {
+      const auto [name, flags, hdef] = schema_page->second;
+      if( true
+        && flags[nestdaq::PageFlag::kIsLeaf]
+        && flags[nestdaq::PageFlag::kIsBuilt] ) {
+        ndu::decode_header( hdef, ptr, header_data );
+        auto body_first = &ptr[hdef.size()];
+        auto body_last  = &ptr[header_data["Length"]/sizeof( uint64_t )-1];
+
+        fLeafProcessor.set_leaf_node( header_data, body_first, body_last );
       } else {
-        const auto [name, flags, hdef] = schema_page->second;
-        if( true
-          && flags[nestdaq::PageFlag::kIsLeaf]
-          && flags[nestdaq::PageFlag::kIsBuilt] ) {
-          ndu::decode_header( hdef, ptr, header_data );
-          auto body_first = &ptr[hdef.size()];
-          auto body_last  = &ptr[header_data["Length"]/sizeof( uint64_t )-1];
-          fLeafProcessor.set_leaf_node( header_data, body_first, body_last );
-        } else {
-          ndu::decode_header( hdef, ptr, header_data );
-        }
-
+        ndu::decode_header( hdef, ptr, header_data );
       }
+
     }
   }
 }

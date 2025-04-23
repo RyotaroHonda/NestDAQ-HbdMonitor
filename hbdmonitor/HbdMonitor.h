@@ -29,10 +29,10 @@ public:
   ~HbdMonitor() = default;
 
 private:
-  bool ConditionalRun() override;
+
+  bool HandleMultipartData( FairMQParts& msgParts, int index );
   void InitTask() override;
-  void UnpackMessage();
-  void PostRun() override;
+  void UnpackMessage( FairMQParts& inParts );
 
   std::string fInputChannelName;
   uint64_t fNumMessages{ 0 };
